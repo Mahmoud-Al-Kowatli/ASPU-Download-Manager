@@ -1,1 +1,27 @@
-# ASPU-Download-Manager
+# 🚀 ASPU Multimedia Download Manager
+**Academic Project for Sham Private University (ASPU)**
+
+A lightweight, efficient multimedia download manager built with Python and Tkinter. This project is part of the Multimedia Systems course requirements.
+
+---
+
+## 🛠️ Installation & Setup (تجهيز البيئة وتشغيل المشروع)
+
+To run this project locally, please follow these steps carefully to ensure all dependencies are met.
+
+### 1. Clone the Repository
+Open your terminal and run:
+ 
+git clone [https://github.com/Mahmoud-Al-Kowatli/ASPU-Download-Manager.git](https://github.com/Mahmoud-Al-Kowatli/ASPU-Download-Manager.git)
+cd ASPU-Download-Manager
+
+# Create the environment
+python -m venv venv
+
+# Activate it
+# On Linux/macOS:
+source venv/bin/activate
+# On Windows:
+.\venv\Scripts\activate
+
+pip install -r requirements.txt
