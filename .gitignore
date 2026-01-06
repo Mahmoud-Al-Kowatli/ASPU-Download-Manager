@@ -1,0 +1,22 @@
+# Python Virtual Environment
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+PYTHON_PATH/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Secret files (where you might store API keys)
+.env
