@@ -196,8 +196,8 @@ if __name__ == "__main__":
 
 -- Additional Requirements --
 1. Download History:
-2. Pause Download: 
-3. Resume Download: 
+2. Pause Download: (Done)
+3. Resume Download: (Done)
 4. Multi-Downloading:
 5. Notifications: (Done)
 6. Thumbnails: 
