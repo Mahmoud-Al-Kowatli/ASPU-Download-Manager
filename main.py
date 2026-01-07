@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import requests
+from pathlib import Path
+import requests 
 import os
 import subprocess
 import threading
@@ -15,7 +16,8 @@ class ASPU_DownloadManager:
     
         # State tracking: flags to control the download flow and cancellation
         self.downloading = False       # True if a download is currently running
-        self.stop_requested = False    # Set to True when the 'Cancel' button is clicked
+        self.cancel_requested = False    # Set to True when the 'Cancel' button is clicked
+        self.stop_requested = False    # Set to True when the 'Stop' button is clicked
 
         # 1. URL Input (Requirement #1)
         tk.Label(root, text="Enter URL:", font=("Arial", 10, "bold")).pack(pady=5)
@@ -23,10 +25,10 @@ class ASPU_DownloadManager:
         self.url_entry.pack(pady=5)
 
         # 2. Save Path (Requirement #3)
-        self.save_path = ""
+        self.save_path = str(os.path.join(Path.home(), "Downloads")) # Default saving path
         self.path_btn = tk.Button(root, text="Select Save Location", command=self.select_dest)
         self.path_btn.pack(pady=5)
-        self.path_label = tk.Label(root, text="No location selected", fg="gray")
+        self.path_label = tk.Label(root, text=f"Save to: {self.save_path}", fg="grey")
         self.path_label.pack()
 
         # 3. File Info (Requirement #5)
@@ -47,6 +49,9 @@ class ASPU_DownloadManager:
         # 5. Control Buttons
         self.start_btn = tk.Button(root, text="Start Download", bg="green", fg="white", command=self.start_thread)
         self.start_btn.pack(pady=10)
+
+        self.stop_btn = tk.Button(root, text="Stop Download", bg="orange", fg="white", command=self.stop_download)
+        self.stop_btn.pack(pady=10)
 
         self.cancel_btn = tk.Button(root, text="Cancel Download", bg="red", fg="white", command=self.cancel_download)
         self.cancel_btn.pack(pady=10)
@@ -73,6 +78,7 @@ class ASPU_DownloadManager:
 
         # Update state and disable button to prevent double-clicks
         self.downloading = True
+        self.cancel_requested = False
         self.stop_requested = False
         self.start_btn.config(state="disabled")
         
@@ -87,24 +93,33 @@ class ASPU_DownloadManager:
         Requests data in chunks and updates the progress bar.
         """
         try:
-            # stream=True allows us to download the file piece by piece
-            response = requests.get(url, stream=True, timeout=10)
-            total_size = int(response.headers.get('content-length', 0))
-            
             # Extract filename from URL or use a default
             filename = url.split("/")[-1] or "downloaded_file"
             full_path = os.path.join(self.save_path, filename)
+            
+            # Check if file already exists and get its size to resume (if needed)
+            existing_size = 0
+            if os.path.exists(full_path):
+                existing_size = os.path.getsize(full_path)
 
+            # 3. Request only the missing part from the server
+            # Header format: {"Range": "bytes=start-"}
+            headers = {"Range": f"bytes={existing_size}-"}
+
+            # stream=True allows us to download the file piece by piece
+            response = requests.get(url, headers=headers, stream=True, timeout=10)
+            total_size = int(response.headers.get('content-length', 0)) + existing_size # Total size includes already downloaded part
+            
             # Update UI labels using .after() for thread safety
             self.root.after(0, lambda: self.file_name_lbl.config(text=f"Name: {filename}"))
             self.root.after(0, lambda: self.file_size_lbl.config(text=f"Size: {total_size // (1024*1024)} MB"))
 
-            downloaded = 0
-            with open(full_path, 'wb') as f:
+            downloaded = existing_size
+            with open(full_path, 'ab') as f:
                 # Process the file in 8KB chunks
                 for chunk in response.iter_content(chunk_size=8192):
-                    if self.stop_requested:
-                        break # Exit loop if user clicked Cancel
+                    if self.cancel_requested or self.stop_requested:
+                        break # Exit loop if user clicked Cancel or Stop
                     
                     if chunk:
                         f.write(chunk)
@@ -115,14 +130,17 @@ class ASPU_DownloadManager:
                             self.root.after(0, lambda p=percent: self.progress.configure(value=p))
 
             # Handle completion or cancellation
-            if self.stop_requested:
+            if self.cancel_requested:
                 f.close()
                 if os.path.exists(full_path):
                     os.remove(full_path) # Delete the unfinished file
                 messagebox.showwarning("Cancelled", "Download was cancelled.")
+            elif self.stop_requested:
+                f.close()
+                messagebox.showinfo("Stopped", "Download was stopped. You can resume later.")
             else:
-                messagebox.showinfo("Success", "Download Completed!")
-                self.open_file(full_path) # Auto-open file on finish
+                messagebox.showinfo("Success", "Download Completed!") # Notify user of completion (Additional Requirement #5)
+                self.open_file(full_path) # Auto-open file on finish (Requirement #7)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to download: {e}")
@@ -134,7 +152,12 @@ class ASPU_DownloadManager:
             self.root.after(0, lambda: self.progress.configure(value=0))
 
     def cancel_download(self):
-        """Triggers the cancellation flag used in the download loop."""
+        """Triggers the cancellation flag used in the download loop.""" # (Requirement #6)
+        if self.downloading:
+            self.cancel_requested = True
+
+    def stop_download(self):
+        """Triggers the stop flag used in the download loop.""" # (Additional Requirement #2)
         if self.downloading:
             self.stop_requested = True
 
@@ -158,4 +181,25 @@ if __name__ == "__main__":
 """ URL1: http://speedtest.tele2.net/10MB.zip
     URL2: http://speedtest.tele2.net/100MB.zip
     URL3: https://raw.githubusercontent.com/py-pdf/sample-files/main/README.md
+"""
+
+# --- Satisfied Requirements ---
+""""
+-- Bare Minimum Requirements --
+1. URL Input: (Done)
+2. Start Download: (Done)
+3. Save Location: (Done)
+4. Progress Tracking: (Done)
+5. File Information: (Done)
+6. Cancel Download: (Done)
+7. Auto-Open: (Done)
+
+-- Additional Requirements --
+1. Download History:
+2. Pause Download: 
+3. Resume Download: 
+4. Multi-Downloading:
+5. Notifications: (Done)
+6. Thumbnails: 
+
 """
