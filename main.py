@@ -6,6 +6,7 @@ import os
 import subprocess
 import threading
 import sys
+import json
 
 class ASPU_DownloadManager:
     def __init__(self, root):
@@ -47,14 +48,17 @@ class ASPU_DownloadManager:
         self.progress.pack(pady=10)
 
         # 5. Control Buttons
+        self.history_btn = tk.Button(root, text="History", bg="gray", fg="black", command=self.show_history_window)
+        self.history_btn.pack(pady=5)
+
         self.start_btn = tk.Button(root, text="Start Download", bg="green", fg="white", command=self.start_thread)
-        self.start_btn.pack(pady=10)
+        self.start_btn.pack(pady=5)
 
         self.stop_btn = tk.Button(root, text="Stop Download", bg="orange", fg="white", command=self.stop_download)
-        self.stop_btn.pack(pady=10)
+        self.stop_btn.pack(pady=5)
 
         self.cancel_btn = tk.Button(root, text="Cancel Download", bg="red", fg="white", command=self.cancel_download)
-        self.cancel_btn.pack(pady=10)
+        self.cancel_btn.pack(pady=5)
 
     def select_dest(self):
         """Allows user to pick where to save the file [cite: 15]"""
@@ -139,7 +143,9 @@ class ASPU_DownloadManager:
                 f.close()
                 messagebox.showinfo("Stopped", "Download was stopped. You can resume later.")
             else:
+                self.update_history_file(filename, url, total_size, full_path) # Update download history 
                 messagebox.showinfo("Success", "Download Completed!") # Notify user of completion (Additional Requirement #5)
+                self.root.after(0, lambda: self.progress.configure(value=0))
                 self.open_file(full_path) # Auto-open file on finish (Requirement #7)
 
         except Exception as e:
@@ -149,7 +155,7 @@ class ASPU_DownloadManager:
             # Reset the UI state regardless of success or failure
             self.downloading = False
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
-            self.root.after(0, lambda: self.progress.configure(value=0))
+            # self.root.after(0, lambda: self.progress.configure(value=0))
 
     def cancel_download(self):
         """Triggers the cancellation flag used in the download loop.""" # (Requirement #6)
@@ -169,6 +175,78 @@ class ASPU_DownloadManager:
             subprocess.run(["open", path])
         else: # Linux/Unix
             subprocess.run(["xdg-open", path])
+
+    def update_history_file(self, file_name, file_url, file_size, file_path):
+        """Saves the downloaded file to a JSON file to keep track of download history."""
+        history_file = "history.json"    
+        new_entry = {
+            "name": file_name,
+            "size": f"{file_size // (1024*1024)} MB",
+            "url": file_url,
+            "path": file_path
+        }
+        # 1. Read existing data
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, "r") as f:
+                    data = json.load(f) # Load existing list
+            except (json.JSONDecodeError, ValueError):
+                data = [] # If file is empty or corrupted, start a new list
+        else:
+            data = [] # If file doesn't exist, start a new list
+
+        # 2. Append the new download to the list
+        data.append(new_entry)
+
+        # 3. Write everything back to the file
+        with open(history_file, "w") as f:
+            json.dump(data, f, indent=4) # indent=4 makes it readable for humans
+
+    def show_history_window(self):
+        """Shows download history in a different window.""" # (Additional Requirement #1)
+        # 1. Create a new pop-up window
+        history_win = tk.Toplevel(self.root)
+        history_win.title("Download History")
+        history_win.geometry("500x400")
+
+        # 2. Add a title label
+        tk.Label(history_win, text="Recent Downloads", font=("Arial", 12, "bold")).pack(pady=10)
+
+        # 3. Create a frame with a scrollbar for the history list
+        list_frame = tk.Frame(history_win)
+        list_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # We use a Text widget to easily display all history items
+        history_display = tk.Text(list_frame, state="disabled", wrap="word")
+        scrollbar = tk.Scrollbar(list_frame, command=history_display.yview)
+        history_display.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        history_display.pack(side="left", fill="both", expand=True)
+
+        # 4. Read the JSON file
+        history_file = "history.json"
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, "r") as f:
+                    history_data = json.load(f)
+                
+                # 5. Format and insert the data into the Text widget
+                history_display.configure(state="normal") # Enable editing to insert text
+                for item in history_data:
+                    if not os.path.exists(item['path']):
+                        continue # Skip entries with missing files
+                    entry_text = f"Name: {item['name']}\nSize: {item['size']}\nURL: {item['url']}\nPath: {item['path']}\n"
+                    entry_text += "-"*50 + "\n"
+                    history_display.insert("end", entry_text)
+                history_display.configure(state="disabled") # Set back to read-only
+                
+            except (json.JSONDecodeError, ValueError):
+                history_display.insert("end", "Error reading history file.")
+        else:
+            history_display.configure(state="normal")
+            history_display.insert("end", "No download history found.")
+            history_display.configure(state="disabled")
 
 # --- Entry Point ---
 if __name__ == "__main__":
@@ -195,7 +273,7 @@ if __name__ == "__main__":
 7. Auto-Open: (Done)
 
 -- Additional Requirements --
-1. Download History:
+1. Download History: (Done) Needs to be tested more thoroughly, duplicated and missing files are not handled perfectly.
 2. Pause Download: (Done)
 3. Resume Download: (Done)
 4. Multi-Downloading:
