@@ -1,5 +1,5 @@
 import tkinter as tk
-from UI import ASPU_DownloadManager_UI
+from ui import ASPU_DownloadManager_UI
 
 if __name__ == "__main__":
     # 1. Create the root window
