@@ -5,6 +5,14 @@ A lightweight, efficient multimedia download manager built with Python and Tkint
 
 ---
 
+## 🏗️ Project Structure
+The project is now refactored into modular components for better maintainability:
+* **main.py**: The application entry point.
+* **ui.py**: Handles the Tkinter interface and user events.
+* **downloader.py**: Contains the core logic for multi-threaded downloads.
+* **storage.py**: Manages local data persistence (JSON history).
+
+
 ## 🛠️ Installation & Setup (تجهيز البيئة وتشغيل المشروع)
 
 To run this project locally, please follow these steps carefully to ensure all dependencies are met.
@@ -19,9 +27,14 @@ cd ASPU-Download-Manager
 python -m venv venv
 
 # Activate it
+
 # On Linux/macOS:
 source venv/bin/activate
+pip install requests
 # On Windows:
 .\venv\Scripts\activate
 
 pip install -r requirements.txt
+
+# Run
+python main.py
