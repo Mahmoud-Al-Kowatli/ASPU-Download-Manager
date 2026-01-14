@@ -1,7 +1,9 @@
 import json
 import os
+from pathlib import Path
 
 HISTORY_FILE = "history.json"
+SETTINGS_FILE = "settings.json"
 
 def load_history():
     """Returns the list of downloaded files from JSON."""
@@ -31,3 +33,21 @@ def save_entry(name, size_bytes):
     
     with open(HISTORY_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
+
+def save_settings(settings_dict):
+    """Saves user preferences to a JSON file."""
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings_dict, f)
+
+def load_settings():
+    """Loads user preferences or returns defaults from config.py."""
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    
+    # Fallback to config.py defaults if no settings file exists
+    return {
+        "save_path": os.path.join(Path.home(), "Downloads"),
+        "open_on_finish": False
+    }
