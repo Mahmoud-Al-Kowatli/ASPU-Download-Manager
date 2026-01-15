@@ -1,81 +1,53 @@
 import requests
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+# Import  custon logic modules
+import class_process
 
 class DownloadEngine:
     def __init__(self):
-        self.downloading = False
-        self.stop_requested = False
-        self.cancel_requested = False
+        self.executor = ThreadPoolExecutor(max_workers=5)
+        self.processes: dict[int, class_process.Process] = {} 
+        # I used this instead of simply using self.processes = {} becuase of Pylance error. :)
 
     def start_download(self, url, callbacks):
         """
-        Starts the download in a separate thread.
-        :param url: The URL to download
-        :param callbacks: Dictionary containing functions for UI updates:
-                          on_progress, on_status, on_finish, on_error, on_pause, on_cancel
+        Starts or Resumes a download while preventing duplicate threads.
         """
-        if self.downloading:
-            return
+        # Check if we already have a process for this URL to avoid duplicates
+        for existing_pid, proc in self.processes.items():
+            if proc.url == url:
+                # If it's already downloading, don't start a second thread
+                if proc.downloading:
+                    return existing_pid
+                
+                # If it exists but is paused, we will replace it with a fresh process 
+                self.pause_download(existing_pid)
 
-        self.downloading = True
-        self.stop_requested = False
-        self.cancel_requested = False
+        # Create the new Process instance
+        new_process = class_process.Process(url, callbacks) 
+        pid = new_process.pid
 
-        thread = threading.Thread(target=self._core_worker, args=(url, callbacks))
-        thread.daemon = True
-        thread.start()
+        # Store it in our tracking dictionary
+        self.processes[pid] = new_process 
 
-    def pause(self):
-        self.stop_requested = True
+        # Submit to the ThreadPool
+        self.executor.submit(new_process.start) 
 
-    def cancel(self):
-        self.cancel_requested = True
+        return pid
 
-    def _core_worker(self, url, callbacks):
-        try:
-            filename = url.split("/")[-1] or "downloaded_file"
-            save_dir = os.path.join(Path.home(), "Downloads")
-            save_path = os.path.join(save_dir, filename)
+    def pause_download(self, pid):
+        """Finds a specific process by ID and pauses it."""
+        if pid in self.processes:
+            self.processes[pid].pause()
 
-            # Check existing file for resume capability
-            existing_size = os.path.getsize(save_path) if os.path.exists(save_path) else 0
-            headers = {"Range": f"bytes={existing_size}-"}
-
-            # Start request
-            response = requests.get(url, headers=headers, stream=True, timeout=15)
-            total_size = int(response.headers.get('content-length', 0)) + existing_size
-
-            callbacks['on_status'](f"Downloading: {filename}")
-
-            downloaded = existing_size
+    def cancel_download(self, pid):
+        """Finds a specific process by ID and cancels it."""
+        if pid in self.processes:
+            self.processes[pid].cancel()
             
-            with open(save_path, 'ab') as f:
-                for chunk in response.iter_content(chunk_size=1024 * 16):
-                    if self.stop_requested or self.cancel_requested:
-                        break
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        percent = (downloaded / total_size) * 100
-                        callbacks['on_progress'](percent)
-
-            # Handle Stop/Cancel/Finish
-            if self.cancel_requested:
-                f.close()
-                if os.path.exists(save_path):
-                    os.remove(save_path)
-                callbacks['on_cancel']()
-
-            elif self.stop_requested:
-                callbacks['on_pause']()
-
-            else:
-                callbacks['on_finish'](filename, save_path, total_size)
-
-        except Exception as e:
-            callbacks['on_error'](str(e))
-        finally:
-            self.downloading = False
-            # Reset progress bar visually if needed via callback, or handle in UI
+            # Remove from dictionary after canceling
+            del self.processes[pid]
