@@ -5,6 +5,8 @@ from pathlib import Path
 HISTORY_FILE = "history.json"
 SETTINGS_FILE = "settings.json"
 
+"""Storage module for managing data files."""
+
 def load_history():
     """Returns the list of downloaded files from JSON."""
     if os.path.exists(HISTORY_FILE):
