@@ -9,6 +9,12 @@ from pathlib import Path
 import storage
 import downloader
 
+"""
+This class manages the graphical user interface for the download manager.
+- This class contains all UI elements, event handlers, and integrates with the DownloadEngine.
+- All meet-in-the-middle logic between UI and backend is handled here.
+"""
+
 class ASPU_DownloadManager_UI:
     def __init__(self, root):
         self.root = root
@@ -197,9 +203,8 @@ class ASPU_DownloadManager_UI:
             # Formatting size to MB for better readability
             self.tree.set(item_id, "Size", f"{total_size / (1024*1024):.2f} MB")
             
-            # Logic check: Assuming storage.save_entry exists in your storage.py
             storage.save_entry(filename, total_size)
-            if self.settings["open_on_finish"].get():
+            if storage.load_settings().get("open_on_finish", True):
                 self.open_file(save_path)
             messagebox.showinfo("Success", f"Download Finished: {filename}")
         self.root.after(0, _update)
